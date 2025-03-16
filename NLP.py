@@ -15,7 +15,7 @@ channel = connection.channel()
 # Declare the same queue
 channel.queue_declare(queue="news_queue", durable=True)
 
- Initialize# OpenAI API
+# Initialize OpenAI API
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))  # Use environment variable
 
 def clean_text(text):
