@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from send2queue import publish_article  # Import function
 
 RSS_FEED_URL = "https://www.aljazeera.com/xml/rss/all.xml"
-LAST_PROCESSED_LINK = None
+LAST_PROCESSED_LINKS = []
 
 def fetch_rss_feed():
     """Fetch and parse the RSS feed."""
@@ -42,7 +42,7 @@ def scrape_article_content(article_url):
 
 def process_feed():
     """Fetches new articles and sends them to RabbitMQ if content is found."""
-    global LAST_PROCESSED_LINK
+    global LAST_PROCESSED_LINKS
     feed = fetch_rss_feed()
 
     if not feed.entries:
@@ -51,7 +51,7 @@ def process_feed():
 
     latest_article = feed.entries[0]
 
-    if LAST_PROCESSED_LINK == latest_article.link:
+    if latest_article.link in LAST_PROCESSED_LINKS:
         print("No new articles.")
         return
 
@@ -80,12 +80,15 @@ def process_feed():
     # Send to RabbitMQ
     publish_article(article_data)
 
-    LAST_PROCESSED_LINK = latest_article.link  
+    # Update the list of processed links
+    LAST_PROCESSED_LINKS.append(latest_article.link)
+    if len(LAST_PROCESSED_LINKS) > 2:
+        LAST_PROCESSED_LINKS.pop(0)  # Keep only the last two links
 
 if __name__ == "__main__":
     print("Starting Al Jazeera RSS Fetcher...\n")
     while True:
         process_feed()
         time.sleep(150)  # Check every 2.5 minutes
-        
+
 
