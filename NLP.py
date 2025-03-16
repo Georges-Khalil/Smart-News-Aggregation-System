@@ -1,7 +1,12 @@
 import pika
 import json
 import re
-from transformers import pipeline
+import os
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Establish connection to RabbitMQ
 connection = pika.BlockingConnection(pika.ConnectionParameters(host="localhost"))
@@ -10,8 +15,8 @@ channel = connection.channel()
 # Declare the same queue
 channel.queue_declare(queue="news_queue", durable=True)
 
-# Initialize the transformers pipeline for text classification
-classifier = pipeline("text-classification", model="bert-base-uncased")
+ Initialize# OpenAI API
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))  # Use environment variable
 
 def clean_text(text):
     """Clean the input text by removing HTML tags."""
@@ -19,14 +24,30 @@ def clean_text(text):
     return text
 
 def truncate_text(text, max_length=512):
-    """Truncate the text to the maximum sequence length."""
-    return text[:max_length]
+    """Truncate the text to the maximum number of tokens."""
+    words = text.split()
+    if len(words) > max_length:
+        return ' '.join(words[:max_length])
+    return text
 
 def assign_urgency_score(text):
-    """Assign an urgency score to the text using a pre-trained classifier."""
+    """Assign an urgency score to the text using OpenAI's GPT-4 API."""
     truncated_text = truncate_text(text)
-    result = classifier(truncated_text)[0]
-    score = int(result['score'] * 10)  # Convert the score to a scale of 1 to 10
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": f"Rate the urgency of the following news article on a scale of 1 to 10, considering its importance as well, but with a heavier weight on urgency:\n\n{truncated_text}\n\nPlease respond with just a number indicating the urgency level:"}
+        ],
+        max_tokens=2,
+        temperature=0.5,
+    )
+    score = response.choices[0].message.content.strip()
+    try:
+        score = int(score)
+    except ValueError:
+        score = -1  # Default to -1 score if parsing fails
+
     return score
 
 def callback(ch, method, properties, body):
