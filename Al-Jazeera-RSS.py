@@ -71,12 +71,6 @@ def process_feed():
         "content": article_content
     }
 
-    # Print the article details before sending to queue
-    print("\n===== New Article Found =====")
-    for key, value in article_data.items():
-        print(f"{key.capitalize()}: {value}")
-    print("============================\n")
-
     # Send to RabbitMQ
     publish_article(article_data)
 
