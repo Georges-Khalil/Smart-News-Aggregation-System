@@ -1,2 +1,3 @@
 __pycache__/send2queue.cpython-312.pyc
 .env
+.DS_Store
