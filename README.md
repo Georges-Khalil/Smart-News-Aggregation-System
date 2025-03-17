@@ -8,3 +8,5 @@ Steps to setup:<br/>
 ...access using this url http://localhost:15672<br/>
 •	Install python package pika<br/>
 •	pip install feedparser requests beautifulsoup4<br/>
+•	pip install openai python-dotenv<br/>
+•	ensure that you have a .env file in the project folder with the OpenAI key set "OPENAI_API_KEY=your_OpenAI_key"<br/>
