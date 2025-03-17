@@ -31,7 +31,7 @@ def truncate_text(text, max_length=512):
     return text
 
 def assign_urgency_score(text):
-    """Assign an urgency score to the text using OpenAI's GPT-4 API."""
+    """Assign an urgency score to the text using OpenAI's GPT-4o API."""
     truncated_text = truncate_text(text)
     response = client.chat.completions.create(
         model="gpt-4o",
