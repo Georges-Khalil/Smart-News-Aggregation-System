@@ -2,11 +2,15 @@ import feedparser
 import requests
 import time
 from bs4 import BeautifulSoup
-from send2queue import publish_article  # Import RabbitMQ function
+import sys
+import os
 
-# Guardian RSS Feed URL
-RSS_FEED_URL = "https://www.theguardian.com/world/rss"
-LAST_PROCESSED_LINK = None  # Keeps track of the last seen article
+# Add the parent directory to the system path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from send2queue import publish_article  # Updated import statement
+
+RSS_FEED_URL = "https://moxie.foxnews.com/google-publisher/latest.xml"
+LAST_PROCESSED_LINK = None
 
 def fetch_rss_feed():
     """Fetch and parse the RSS feed."""
@@ -17,7 +21,7 @@ def clean_html(raw_html):
     return BeautifulSoup(raw_html, "html.parser").get_text(strip=True)
 
 def scrape_article_content(article_url):
-    """Scrapes the full article content from a Guardian article."""
+    """Scrapes the full article content from Fox News."""
     try:
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(article_url, headers=headers)
@@ -26,7 +30,7 @@ def scrape_article_content(article_url):
         soup = BeautifulSoup(response.text, "html.parser")
 
         # Find the article content inside the correct div
-        content_div = soup.find("div", class_="article-body-commercial-selector")
+        content_div = soup.find("div", class_="article-body")
 
         if not content_div:
             return "Content not found"
@@ -49,20 +53,19 @@ def process_feed():
         print("No articles found in RSS feed.")
         return
 
-    latest_article = feed.entries[0]  # The newest article in the feed
+    latest_article = feed.entries[0]  # The newest article
 
     if LAST_PROCESSED_LINK == latest_article.link:
         print("No new articles.")
         return
 
-    # Extract required fields
     article_data = {
         "title": latest_article.title,
         "description": clean_html(latest_article.description),  # Clean description
         "link": latest_article.link,
         "pub_date": latest_article.published,
         "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else "No Image",
-        "source": "The Guardian",
+        "source": "Fox News",
         "content": scrape_article_content(latest_article.link)  # Scrape and clean content
     }
 
@@ -73,7 +76,7 @@ def process_feed():
     LAST_PROCESSED_LINK = latest_article.link  
 
 if __name__ == "__main__":
-    print("Starting RSS Fetcher for The Guardian...\n")
+    print("Starting Fox News RSS Fetcher...\n")
     while True:
         process_feed()
-        time.sleep(150)  # Check every 2.5 minutes seconds
+        time.sleep(150)  # Check every 2.5 minutes

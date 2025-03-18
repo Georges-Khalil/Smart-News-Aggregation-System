@@ -2,7 +2,12 @@ import feedparser
 import requests
 import time
 from bs4 import BeautifulSoup
-from send2queue import publish_article  # Import function
+import sys
+import os
+
+# Add the parent directory to the system path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from send2queue import publish_article  # Updated import statement
 
 RSS_FEED_URL = "https://www.aljazeera.com/xml/rss/all.xml"
 LAST_PROCESSED_LINKS = []

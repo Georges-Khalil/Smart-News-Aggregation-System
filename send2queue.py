@@ -42,5 +42,4 @@ def publish_processed_article(processed_article_data):
         properties=pika.BasicProperties(delivery_mode=2)  # Makes message persistent
     )
 
-    print(f"Sent processed article: {processed_article_data['title']}")
     connection.close()
