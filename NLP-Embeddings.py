@@ -4,6 +4,7 @@ import re
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+from send2queue import publish_processed_article
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,6 +51,15 @@ def assign_urgency_score(text):
 
     return score
 
+def create_embedding(text):
+    """Create an embedding for the text using OpenAI's API."""
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text
+    )
+    embedding = response.data[0].embedding
+    return embedding
+
 def callback(ch, method, properties, body):
     """Process and print messages in a structured format."""
     article = json.loads(body)
@@ -60,14 +70,33 @@ def callback(ch, method, properties, body):
     # Assign an urgency score
     urgency_score = assign_urgency_score(cleaned_content)
 
-    print("\n===== New Article Received =====")
+    # Create an embedding for the article
+    try:
+        embedding = create_embedding(cleaned_content)
+        embedding_status = "Embedding created successfully"
+    except Exception as e:
+        embedding = None
+        embedding_status = f"Failed to create embedding: {e}"
+
+    # Prepare processed article data
+    processed_article_data = {
+        "title": article['title'],
+        "pub_date": article['pub_date'],
+        "link": article['link'],
+        "image": article['image'],
+        "source": article['source'],
+        "urgency_score": urgency_score,
+        "embedding": embedding,
+        "content": cleaned_content
+    }
+
+    # Send processed article to RabbitMQ
+    publish_processed_article(processed_article_data)
+
+    print("\n===== New Article Processed =====")
     print(f"Title: {article['title']}")
-    print(f"Date: {article['pub_date']}")
-    print(f"Link: {article['link']}")
-    print(f"Image: {article['image']}")
-    print(f"Source: {article['source']}")
     print(f"Urgency Score: {urgency_score}/10")
-    print("\nContent:\n" + cleaned_content)
+    print(f"Embedding Status: {embedding_status}")
     print("=" * 50)  # Separator line
 
     ch.basic_ack(delivery_tag=method.delivery_tag)  # Acknowledge message
