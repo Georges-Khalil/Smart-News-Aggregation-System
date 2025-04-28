@@ -16,6 +16,10 @@ def fetch_rss_feed():
     """Fetch and parse the RSS feed."""
     return feedparser.parse(RSS_FEED_URL)
 
+def clean_html(raw_html):
+    """Removes HTML tags from text."""
+    return BeautifulSoup(raw_html, "html.parser").get_text(strip=True)
+
 def scrape_article_content(article_url):
     """Scrapes the full article content from the given URL."""
     try:
@@ -48,7 +52,7 @@ def process_feed():
 
     article_data = {
         "title": latest_article.title,
-        "description": latest_article.description,
+        "description": clean_html(latest_article.description),  # Clean HTML tags from description
         "link": latest_article.link,
         "pub_date": latest_article.published,
         "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else "No Image",
@@ -58,7 +62,7 @@ def process_feed():
 
     # Send to RabbitMQ
     publish_article(article_data)
-
+    
     LAST_PROCESSED_LINK = latest_article.link  
 
 if __name__ == "__main__":

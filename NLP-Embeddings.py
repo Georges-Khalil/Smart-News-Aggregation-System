@@ -32,23 +32,35 @@ def truncate_text(text, max_length=512):
     return text
 
 def assign_urgency_score(text):
-    """Assign an urgency score to the text using OpenAI's GPT-4o API."""
+    """Assign an urgency score to the text using GPT-3.5 Turbo."""
     truncated_text = truncate_text(text)
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": f"Rate the urgency of the following news article on a scale of 1 to 10, considering its importance as well, but with a heavier weight on urgency:\n\n{truncated_text}\n\nPlease respond with just a number indicating the urgency level:"}
+            {"role": "system", "content": """You are a news urgency classifier. 
+            
+Urgency Scale Definition:
+1-2: Non-urgent general interest (sports results, entertainment news, lifestyle articles)
+3-4: Mildly time-sensitive news (business updates, political developments)
+5-6: Notable current events (important policy changes, significant economic news)
+7-8: High-urgency situations (severe weather warnings, major political crises)
+9-10: Critical emergency situations (natural disasters in progress, terrorist attacks, imminent threats to public safety)
+
+Most news articles should score between 1-5. Scores of 7+ should be reserved for truly urgent situations with immediate impact on public safety or critical national/global interests."""},
+            {"role": "user", "content": f"Rate the urgency of the following news article on a scale of 1 to 10. Be conservative - most news is NOT urgent.\n\n{truncated_text}\n\nRespond with ONLY a single number (1-10):"}
         ],
-        max_tokens=2,
-        temperature=0.5,
+        max_tokens=1,  # Even more restrictive to ensure only the number
+        temperature=0.1,  # Very low temperature for consistency
     )
     score = response.choices[0].message.content.strip()
     try:
         score = int(score)
+        # Additional validation to ensure score is between 1 and 10
+        if score < 1 or score > 10:
+            score = 3  # Default to moderate urgency if out of range
     except ValueError:
-        score = -1  # Default to -1 score if parsing fails
-
+        score = 3  # Default to moderate urgency if parsing fails
+    
     return score
 
 def create_embedding(text):
@@ -87,7 +99,8 @@ def callback(ch, method, properties, body):
         "source": article['source'],
         "urgency_score": urgency_score,
         "embedding": embedding,
-        "content": cleaned_content
+        "content": cleaned_content,
+        "description": article.get('description', '')  # Add description field
     }
 
     # Send processed article to RabbitMQ
