@@ -123,7 +123,7 @@ def main():
                     env["PYTHONPATH"] = os.path.dirname(base_dir)
                     
                     api_process = subprocess.Popen(
-                        f"{sys.executable} -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
+                        f"{sys.executable} -m uvicorn app.main:app --host 0.0.0.0 --port 8000",
                         cwd=base_dir,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
@@ -138,7 +138,7 @@ def main():
                     env["PYTHONPATH"] = os.path.dirname(base_dir)
                     
                     api_process = subprocess.Popen(
-                        [uvicorn_path, "app.main:app", "--host", "127.0.0.1", "--port", "8000"],
+                        [uvicorn_path, "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
                         cwd=base_dir,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,

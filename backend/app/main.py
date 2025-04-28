@@ -6,17 +6,17 @@ from app.core.config import settings
 from app.api.v1 import auth, articles
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="Smart News Aggregator API",
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Set up CORS middleware
+# Add CORS middleware for web browser access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in development
+    allow_origins=["*"],  # For development - replace with specific domains in production
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include API routers

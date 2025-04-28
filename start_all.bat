@@ -7,9 +7,6 @@ echo.
 :: Set working directory to the script location
 cd /d "%~dp0"
 
-:: Create logs directory if it doesn't exist
-if not exist logs mkdir logs
-
 :: Check Python
 python --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
@@ -54,14 +51,17 @@ echo Starting NLP Processor...
 start cmd /c "title NLP Processor && python NLP-Embeddings.py"
 
 echo Starting Backend (FastAPI + RabbitMQ Consumer)...
-start cmd /c "title Backend Server && cd backend && python run_backend.py --init-db"
+start cmd /c "title Backend Server && cd backend && python run_backend.py"
 
 :: Wait a bit to ensure backend is running before starting frontend
 echo Waiting for backend to initialize...
 ping -n 11 127.0.0.1 > nul
 echo Backend initialization wait complete.
 
-:: Frontend startup removed
+:: Start the React Native app
+echo Starting React Native app...
+start cmd /c "title React Native App && cd news-aggregator && npm start"
+
 goto :summary
 
 :summary
@@ -72,8 +72,10 @@ echo.
 echo - RSS Feed Scrapers: Running in separate windows
 echo - NLP Processor: Running in separate window
 echo - Backend: Running in separate window
+echo - React Native App: Running in separate window
 echo.
-echo Access the application at: http://localhost:3000
+echo Access the backend at: http://localhost:8000
+echo For React Native app: Check the Expo console window
 echo.
 echo You can now see the print statements directly in each window
 echo To stop all processes, close all opened command prompts
