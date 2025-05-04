@@ -47,6 +47,20 @@ if exist RSS_Feeds\Guardian-MiddleEast-RSS.py (
     start cmd /c "title RSS Feed - Guardian Middle East && python RSS_Feeds\Guardian-MiddleEast-RSS.py"
 )
 
+:: Start the New York Times RSS feed scrapers
+start cmd /c "title RSS Feed - NYT World && python RSS_Feeds\NYT-World-RSS.py"
+start cmd /c "title RSS Feed - NYT Middle East && python RSS_Feeds\NYT-MiddleEast-RSS.py"
+start cmd /c "title RSS Feed - NYT Business && python RSS_Feeds\NYT-Business-RSS.py"
+start cmd /c "title RSS Feed - NYT Economy && python RSS_Feeds\NYT-Economy-RSS.py"
+start cmd /c "title RSS Feed - NYT Media && python RSS_Feeds\NYT-MediaAndAdvertising-RSS.py"
+start cmd /c "title RSS Feed - NYT Technology && python RSS_Feeds\NYT-Technology-RSS.py"
+start cmd /c "title RSS Feed - NYT Personal Tech && python RSS_Feeds\NYT-PersonalTech-RSS.py"
+start cmd /c "title RSS Feed - NYT Education && python RSS_Feeds\NYT-Education-RSS.py"
+start cmd /c "title RSS Feed - NYT Europe && python RSS_Feeds\NYT-Europe-RSS.py"
+start cmd /c "title RSS Feed - NYT Africa && python RSS_Feeds\NYT-Africa-RSS.py"
+start cmd /c "title RSS Feed - NYT Americas && python RSS_Feeds\NYT-Americas-RSS.py"
+start cmd /c "title RSS Feed - NYT Asia Pacific && python RSS_Feeds\NYT-AsiaPacific-RSS.py"
+
 echo Starting NLP Processor...
 start cmd /c "title NLP Processor && python NLP-Embeddings.py"
 

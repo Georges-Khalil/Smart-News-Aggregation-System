@@ -13,7 +13,7 @@ const getApiUrl = () => {
   if (Platform.OS === 'android' || Platform.OS === 'ios') {
     // IMPORTANT: This is the IP address visible to your mobile device
     // We're using the IP address from your Wi-Fi adapter
-    return 'http://192.168.0.136:8000/api/v1';
+    return 'http://192.168.1.36:8000/api/v1';
   }
   
   // Default fallback

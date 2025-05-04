@@ -606,23 +606,61 @@ class RecommendationService:
                 standard_recs.sort(key=lambda x: x[1], reverse=True)
                 exploration_candidates.sort(key=lambda x: x[1], reverse=True)
                 
-                # Select top standard recommendations
-                standard_articles = [article for article, _ in standard_recs[:standard_count]]
+                # Select top standard recommendations across all pages, not just for current page
+                # This way we maintain the ratio of personalized vs exploration content
+                standard_articles = [article for article, _ in standard_recs]
                 
                 # Get IDs of selected standard articles to avoid duplication
                 standard_ids = {str(article.id) for article in standard_articles}
                 
-                # Select top exploration articles that aren't in standard recommendations
+                # Select exploration articles that aren't in standard recommendations
                 exploration_articles = []
                 for article, _ in exploration_candidates:
-                    if str(article.id) not in standard_ids and len(exploration_articles) < exploration_count:
+                    if str(article.id) not in standard_ids:
                         exploration_articles.append(article)
                 
-                # Combine the recommendations
-                result = standard_articles + exploration_articles
+                # Combine all recommendations
+                all_results = []
                 
-                # Apply pagination
-                final_result = result[offset:offset+limit]
+                # First add standard articles based on the exploration ratio
+                # For example, if ratio is 0.2, we add 80% standard and 20% exploration
+                standard_ratio = 1.0 - exploration_ratio
+                num_standard_per_page = int(limit * standard_ratio)
+                num_exploration_per_page = limit - num_standard_per_page
+                
+                # Get total number of articles for pagination info
+                total_recommendations = len(standard_articles) + len(exploration_articles)
+                
+                # Calculate how many standard and exploration articles we need up to the current offset
+                total_standard_needed = min(len(standard_articles), num_standard_per_page * ((offset // limit) + 1))
+                total_exploration_needed = min(len(exploration_articles), num_exploration_per_page * ((offset // limit) + 1))
+                
+                # Add standard articles
+                for i in range(min(total_standard_needed, len(standard_articles))):
+                    all_results.append((standard_articles[i], 1, i))  # (article, type, original_position)
+                
+                # Add exploration articles
+                for i in range(min(total_exploration_needed, len(exploration_articles))):
+                    all_results.append((exploration_articles[i], 2, i))  # (article, type, original_position)
+                
+                # Sort the mixed results ensuring we maintain the exact ratio within each page
+                # The formula ensures standard articles are placed first, followed by exploration
+                # But they maintain their internal relative ordering based on original position
+                all_results.sort(key=lambda x: (
+                    (x[1] - 1) * limit + (x[2] // num_standard_per_page if x[1] == 1 else x[2] // num_exploration_per_page)
+                ))
+                
+                # Extract just the articles for the requested page
+                start_idx = offset
+                end_idx = min(start_idx + limit, len(all_results))
+                
+                # Make sure we don't go out of bounds (this is what fixed the pagination bug)
+                if start_idx >= len(all_results):
+                    return []  # Return empty list if we're past the last page
+                
+                # Get the final paginated result
+                final_result = [article for article, _, _ in all_results[start_idx:end_idx]]
+                
                 return final_result
             else:
                 # If no preference data, fall back to recency and urgency
@@ -633,8 +671,10 @@ class RecommendationService:
                 
         except Exception as e:
             print(f"Error getting multi-vector recommendations: {e}")
+            import traceback
+            traceback.print_exc()
             return []
-    
+
     def _score_with_single_vector(self, user, articles, current_time, max_age_days, standard_recs, exploration_candidates):
         """Helper method to score articles with a single preference vector."""
         for article in articles:
