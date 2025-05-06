@@ -221,7 +221,6 @@ async def search_articles(
     sources: Optional[List[str]] = Query(None, description="Filter by source names"),
     min_urgency: Optional[int] = Query(None, ge=1, le=10, description="Minimum urgency score"),
     sort_by: str = Query("relevance", description="Sort results by: relevance, recency, or urgency"),
-    personalized: bool = Query(True, description="Use user preferences to personalize results"),
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user)
 ) -> Any:
@@ -238,10 +237,9 @@ async def search_articles(
       Example: ?sources=CNN&sources=BBC
     - min_urgency: Minimum urgency score (1-10)
     - sort_by: Sort results by one of: "relevance", "recency", or "urgency" (default: "relevance")
-    - personalized: Whether to use user preferences for ranking (default: true)
     
     Headers:
-    - Authorization: Bearer {access_token} (optional, required for personalized=true)
+    - Authorization: Bearer {access_token} (optional)
     
     Returns:
     - 200 OK: Paginated search results
@@ -269,9 +267,6 @@ async def search_articles(
         "page_size": 10,
         "total_pages": 5
       }
-    
-    Error Responses:
-    - 401 Unauthorized: If personalized=true but not authenticated
     """
     from app.services.search import SearchService
     
@@ -281,17 +276,13 @@ async def search_articles(
     # Initialize search service
     search_service = SearchService(db)
     
-    # Get user ID for personalization if user is authenticated and personalization is enabled
-    user_id = str(current_user.id) if current_user and personalized else None
-    
     # Perform search
     search_results = search_service.search_articles(
         query=query,
-        user_id=user_id,
+        user_id=None,  # No longer use user_id for personalization
         sources=sources,
         min_urgency=min_urgency,
         sort_by=sort_by,
-        personalized=personalized,
         limit=page_size,
         offset=offset
     )
@@ -455,22 +446,20 @@ async def record_article_interaction(
     
     db.commit()
     
-    # If user liked article, update their preference embedding
-    if interaction.liked:
-        try:
-            recommendation_service = RecommendationService(db)
-            # Convert user ID to string to avoid UUID object error
-            user_id_str = str(current_user.id)
-            
-            # Use the new multi-vector time-weighted method instead of the simple average
-            update_successful = recommendation_service.update_multi_vector_time_weighted_preferences(user_id_str)
-            if not update_successful:
-                print(f"[DEBUG] Preference update unsuccessful for user {user_id_str}")
-        except Exception as e:
-            # Log the error but don't fail the request - the interaction was already recorded
-            print(f"[ERROR] Error updating preferences after interaction: {e}")
-            import traceback
-            traceback.print_exc()
+    # Update preferences based on the type of interaction
+    try:
+        # Use the unified preference update method that handles both liked and read interactions
+        user_id_str = str(current_user.id)
+        recommendation_service = RecommendationService(db)
+        update_successful = recommendation_service.update_user_preferences(user_id_str)
+        
+        if not update_successful:
+            print(f"[DEBUG] Preference update unsuccessful for user {user_id_str}")
+    except Exception as e:
+        # Log the error but don't fail the request - the interaction was already recorded
+        print(f"[ERROR] Error updating preferences after interaction: {e}")
+        import traceback
+        traceback.print_exc()
     
     return {"success": True, "message": "Interaction recorded successfully"}
 

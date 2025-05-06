@@ -23,7 +23,6 @@ class SearchService:
         sources: Optional[List[str]] = None,
         min_urgency: Optional[int] = None,
         sort_by: str = "relevance",  # Options: relevance, recency, urgency
-        personalized: bool = True,   # Whether to personalize results using user preferences
         limit: int = 20,
         offset: int = 0
     ) -> Dict[str, Any]:
@@ -33,8 +32,7 @@ class SearchService:
         This method combines:
         1. Text-based search on title, description and content
         2. Optional filtering by sources
-        3. Optional personalization using user preference embedding
-        4. Flexible sorting by relevance, recency, or urgency
+        3. Flexible sorting by relevance, recency, or urgency
         """
         # Start with basic query for search
         base_query = self.db.query(Article)
@@ -93,37 +91,17 @@ class SearchService:
                 reverse=True
             )
         else:  # Default to relevance
-            # For relevance, we need to score articles based on match and optionally user preferences
+            # For relevance, we need to score articles based on match
             article_scores = []
-            
-            # Get user preferences if personalization is enabled and user_id is provided
-            user_preferences = None
-            if personalized and user_id:
-                user = self.db.query(User).filter(User.id == user_id).first()
-                if user and user.preference_embedding:
-                    user_preferences = user.preference_embedding
             
             for article in filtered_articles:
                 # Base relevance score - could be based on term frequency, position, etc.
                 # For simplicity, we'll use a default score of 1.0
                 base_score = 1.0
                 
-                # Adjust score based on user preferences if available
-                if personalized and user_preferences and article.embedding:
-                    # Calculate similarity between article and user preferences
-                    similarity = self.compute_cosine_similarity(
-                        user_preferences, article.embedding
-                    )
-                    
-                    # Final score is a weighted combination of base relevance and preference match
-                    # Adjust the weights based on how much you want to personalize results
-                    final_score = (base_score * 0.4) + (similarity * 0.6)
-                else:
-                    final_score = base_score
-                
                 # Include urgency as a minor factor in relevance
                 urgency_boost = article.urgency_score / 10 * 0.2
-                final_score += urgency_boost
+                final_score = base_score + urgency_boost
                 
                 article_scores.append((article, final_score))
             

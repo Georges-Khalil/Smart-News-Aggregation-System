@@ -11,7 +11,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from 'react-native-elements';
 import ArticleCard from '../../components/ArticleCard';
-import SearchBar from '../../components/SearchBar';
 import { articlesApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -127,8 +126,8 @@ const HomeScreen = ({ navigation }: any) => {
   };
 
   // Handle search button press
-  const handleSearch = (query: string) => {
-    navigation.navigate('Search', { query });
+  const handleSearchButtonPress = () => {
+    navigation.navigate('Search');
   };
 
   // Toggle between personalized and recent feeds
@@ -141,22 +140,29 @@ const HomeScreen = ({ navigation }: any) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>News Feed</Text>
-        {isAuthenticated && (
-          <TouchableOpacity style={styles.feedToggle} onPress={toggleFeedType}>
-            <Icon
-              name={isPersonalized ? 'account-circle' : 'public'}
-              type="material"
-              size={22}
-              color="#2196F3"
-            />
-            <Text style={styles.feedToggleText}>
-              {isPersonalized ? 'Personalized' : 'Recent'}
-            </Text>
+        <View style={styles.headerButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.searchButton} 
+            onPress={handleSearchButtonPress}
+          >
+            <Icon name="search" type="material" size={24} color="#2196F3" />
           </TouchableOpacity>
-        )}
+          
+          {isAuthenticated && (
+            <TouchableOpacity style={styles.feedToggle} onPress={toggleFeedType}>
+              <Icon
+                name={isPersonalized ? 'account-circle' : 'public'}
+                type="material"
+                size={22}
+                color="#2196F3"
+              />
+              <Text style={styles.feedToggleText}>
+                {isPersonalized ? 'Personalized' : 'Recent'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-
-      <SearchBar onSearch={handleSearch} />
 
       {error && (
         <View style={styles.errorContainer}>
@@ -236,6 +242,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#212121',
+  },
+  headerButtonsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchButton: {
+    padding: 8,
+    marginRight: 8,
   },
   feedToggle: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ from app.core.database import Base, engine
 from app.models.models import Article, User, user_article_interactions
 from migrations.add_description_column import run_migration as add_description_column
 from migrations.add_preference_embeddings_column import run_migration as add_preference_embeddings_column
+from migrations.remove_preference_embedding_column import run_migration as remove_preference_embedding_column
 
 def create_tables():
     """Create database tables"""
@@ -44,8 +45,15 @@ if __name__ == "__main__":
             print("Running migrations to ensure all columns exist...")
             description_migration_success = add_description_column()
             preference_embeddings_migration_success = add_preference_embeddings_column()
+            
+            # Run migration to remove preference_embedding column after ensuring preference_embeddings exists
+            if preference_embeddings_migration_success:
+                print("Running migration to remove redundant preference_embedding column...")
+                remove_preference_embedding_success = remove_preference_embedding_column()
+            else:
+                remove_preference_embedding_success = False
 
-            if description_migration_success and preference_embeddings_migration_success:
+            if description_migration_success and preference_embeddings_migration_success and remove_preference_embedding_success:
                 print("Database reset, initialization, and migrations complete")
                 sys.exit(0)
             else:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -8,8 +8,9 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Share,
-  Animated,
-  Linking
+  Linking,
+  Platform,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from 'react-native-elements';
@@ -19,7 +20,6 @@ import { useAuth } from '../../context/AuthContext';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../../App';
 
-// Use React Navigation's type utility for screen props with our RootStackParamList
 type ArticleDetailProps = NativeStackScreenProps<RootStackParamList, 'ArticleDetail'>;
 
 const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }) => {
@@ -30,12 +30,6 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
   const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [readingStartTime, setReadingStartTime] = useState<number>(0);
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [0, 1],
-    extrapolate: 'clamp'
-  });
 
   // Fetch article details
   useEffect(() => {
@@ -99,6 +93,11 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
     }
   };
 
+  // Handle back button press
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
   // Share article
   const handleShare = async () => {
     if (!article) return;
@@ -119,6 +118,25 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
         console.error('Error opening link:', err);
       });
     }
+  };
+
+  // Get urgency indicator properties
+  const getUrgencyColor = (score: number) => {
+    if (score <= 4) return '#4CAF50'; // Green for low urgency
+    if (score <= 8) return '#FFC107'; // Yellow for medium urgency
+    return '#F44336'; // Red for breaking (9-10)
+  };
+
+  const getUrgencyLabel = (score: number) => {
+    if (score <= 4) return 'Low';
+    if (score <= 8) return 'Medium';
+    return 'Breaking';
+  };
+
+  const getUrgencyIcon = (score: number) => {
+    if (score <= 4) return "information-outline";
+    if (score <= 8) return "clock-outline";
+    return "alarm-light";
   };
 
   // Loading state
@@ -150,30 +168,14 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
   // Format date
   const formattedDate = dayjs(article.pub_date).format('MMMM D, YYYY');
   
-  // Get urgency indicator color
-  const getUrgencyColor = (score: number) => {
-    if (score <= 3) return '#4CAF50'; // Green for low urgency
-    if (score <= 6) return '#FFC107'; // Yellow for medium urgency
-    return '#F44336'; // Red for high urgency
-  };
-
   return (
-    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      {/* Animated header */}
-      <Animated.View style={[
-        styles.animatedHeader,
-        { opacity: headerOpacity }
-      ]}>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {article.title}
-        </Text>
-      </Animated.View>
-      
-      {/* Static header */}
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={handleBackPress}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
         >
           <Icon name="arrow-back" type="material" size={24} color="#212121" />
         </TouchableOpacity>
@@ -182,6 +184,7 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={handleLikePress}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
           >
             <Icon 
               name={isLiked ? 'heart' : 'heart-outline'} 
@@ -194,22 +197,18 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={handleShare}
+            hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
           >
             <Icon name="share" type="material" size={24} color="#616161" />
           </TouchableOpacity>
         </View>
       </View>
       
-      <Animated.ScrollView 
+      {/* Main Content */}
+      <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
       >
-        {/* Article content */}
         <View style={styles.content}>
           {/* Title and metadata */}
           <Text style={styles.title}>{article.title}</Text>
@@ -217,14 +216,32 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
           <View style={styles.metaContainer}>
             <View style={styles.sourceContainer}>
               <Text style={styles.source}>{article.source}</Text>
-              <View 
-                style={[
-                  styles.urgencyIndicator, 
-                  { backgroundColor: getUrgencyColor(article.urgency_score) }
-                ]} 
-              />
             </View>
             <Text style={styles.date}>{formattedDate}</Text>
+            
+            {/* Urgency indicator with score */}
+            <View style={styles.urgencyContainer}>
+              <View 
+                style={[
+                  styles.urgencyPill, 
+                  { backgroundColor: getUrgencyColor(article.urgency_score) }
+                ]}
+              >
+                <Icon
+                  name={getUrgencyIcon(article.urgency_score)}
+                  type="material-community"
+                  size={14}
+                  color="#FFFFFF"
+                  style={styles.urgencyIcon}
+                />
+                <Text style={styles.urgencyText}>
+                  {getUrgencyLabel(article.urgency_score)}
+                </Text>
+              </View>
+              <Text style={styles.urgencyScore}>
+                Urgency score: <Text style={styles.urgencyScoreValue}>{article.urgency_score}/10</Text>
+              </Text>
+            </View>
           </View>
           
           {/* Featured image */}
@@ -254,7 +271,7 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
             <Icon name="open-in-new" type="material" size={16} color="#2196F3" />
           </TouchableOpacity>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -300,36 +317,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  animatedHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 56,
-    zIndex: 100,
-    elevation: 2,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#212121',
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 56,
-    zIndex: 10,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
   },
   backButton: {
     padding: 8,
@@ -339,7 +335,7 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
-    marginLeft: 8,
+    marginLeft: 16,
   },
   scrollView: {
     flex: 1,
@@ -366,11 +362,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#616161',
   },
-  urgencyIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginLeft: 8,
+  urgencyContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
+  urgencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  urgencyIcon: {
+    marginRight: 4,
+  },
+  urgencyText: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  urgencyScore: {
+    fontSize: 14,
+    color: '#616161',
+  },
+  urgencyScoreValue: {
+    fontWeight: '600',
   },
   date: {
     fontSize: 14,

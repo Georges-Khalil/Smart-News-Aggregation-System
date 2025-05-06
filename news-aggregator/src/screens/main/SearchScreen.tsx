@@ -5,14 +5,35 @@ import {
   FlatList, 
   ActivityIndicator, 
   Text, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Modal,
+  ScrollView
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon } from 'react-native-elements';
 import ArticleCard from '../../components/ArticleCard';
 import SearchBar from '../../components/SearchBar';
 import { articlesApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+
+// Define common news sources
+const NEWS_SOURCES = [
+  "CNN", 
+  "BBC", 
+  "Al Jazeera", 
+  "The Guardian", 
+  "FOX News", 
+  "LBC", 
+  "New York Times"
+];
+
+// Urgency levels
+const URGENCY_LEVELS = [
+  { label: 'Low', value: 'low', minScore: 1, maxScore: 4, color: '#4CAF50' },
+  { label: 'Medium', value: 'medium', minScore: 5, maxScore: 8, color: '#FFC107' },
+  { label: 'Breaking', value: 'breaking', minScore: 9, maxScore: 10, color: '#F44336' },
+];
 
 interface SearchScreenProps {
   navigation: any;
@@ -34,9 +55,14 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
   const [likedArticles, setLikedArticles] = useState<Record<string, boolean>>({});
   const [activeFilters, setActiveFilters] = useState({
     sources: [] as string[],
-    minUrgency: 0,
-    sortBy: 'relevance' as 'relevance' | 'recency' | 'urgency',
-    personalized: isAuthenticated
+    urgencyLevel: '' as '' | 'low' | 'medium' | 'breaking',
+    sortBy: 'relevance' as 'relevance' | 'recency' | 'urgency'
+  });
+  const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [tempFilters, setTempFilters] = useState({
+    sources: [] as string[],
+    urgencyLevel: '' as '' | 'low' | 'medium' | 'breaking'
   });
 
   // Search for articles
@@ -62,14 +88,23 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
         pageNum = 1;
       }
 
+      // Determine minimum urgency based on selected urgency level
+      let minUrgency: number | undefined;
+      
+      if (filters.urgencyLevel) {
+        const urgencyLevel = URGENCY_LEVELS.find(level => level.value === filters.urgencyLevel);
+        if (urgencyLevel) {
+          minUrgency = urgencyLevel.minScore;
+        }
+      }
+
       const response = await articlesApi.searchArticles({
         query,
         page: pageNum,
         pageSize: 10,
         sources: filters.sources.length > 0 ? filters.sources : undefined,
-        minUrgency: filters.minUrgency > 0 ? filters.minUrgency : undefined,
-        sortBy: filters.sortBy,
-        personalized: filters.personalized && isAuthenticated
+        minUrgency,
+        sortBy: filters.sortBy
       });
 
       if (response.success) {
@@ -94,6 +129,16 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
       searchArticles(initialQuery, 1, true);
     }
   }, [initialQuery]);
+
+  // Initialize temporary filters when filter modal opens
+  useEffect(() => {
+    if (filterModalVisible) {
+      setTempFilters({
+        sources: [...activeFilters.sources],
+        urgencyLevel: activeFilters.urgencyLevel
+      });
+    }
+  }, [filterModalVisible]);
 
   // Handle search submit
   const handleSearch = (query: string) => {
@@ -150,11 +195,106 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
     }
   };
 
-  // Handle filter changes
-  const applyFilters = (filters: typeof activeFilters) => {
-    setActiveFilters(filters);
-    searchArticles(initialQuery, 1, true, filters);
+  // Handle sorting selection
+  const handleSortSelect = (sortBy: 'relevance' | 'recency' | 'urgency') => {
+    setActiveFilters(prev => ({
+      ...prev,
+      sortBy
+    }));
+    setSortModalVisible(false);
+    
+    // Re-search with new sorting option
+    if (initialQuery) {
+      searchArticles(initialQuery, 1, true, {
+        ...activeFilters,
+        sortBy
+      });
+    }
   };
+
+  // Handle source toggle in filter modal
+  const handleSourceToggle = (source: string) => {
+    setTempFilters(prev => {
+      const newSources = [...prev.sources];
+      const index = newSources.indexOf(source);
+      
+      if (index === -1) {
+        newSources.push(source);
+      } else {
+        newSources.splice(index, 1);
+      }
+      
+      return {
+        ...prev,
+        sources: newSources
+      };
+    });
+  };
+
+  // Handle apply filters
+  const handleApplyFilters = () => {
+    setActiveFilters(prev => ({
+      ...prev,
+      sources: tempFilters.sources,
+      urgencyLevel: tempFilters.urgencyLevel as '' | 'low' | 'medium' | 'breaking'
+    }));
+    setFilterModalVisible(false);
+    
+    // Re-search with new filters
+    if (initialQuery) {
+      searchArticles(initialQuery, 1, true, {
+        ...activeFilters,
+        sources: tempFilters.sources,
+        urgencyLevel: tempFilters.urgencyLevel as '' | 'low' | 'medium' | 'breaking'
+      });
+    }
+  };
+
+  // Handle reset filters
+  const handleResetFilters = () => {
+    setTempFilters({
+      sources: [],
+      urgencyLevel: ''
+    });
+  };
+
+  // Handle removing a source filter chip
+  const handleRemoveSourceFilter = (source: string) => {
+    setActiveFilters(prev => {
+      const newSources = prev.sources.filter(s => s !== source);
+      const newFilters = {
+        ...prev,
+        sources: newSources
+      };
+      
+      // Re-search with the updated filters
+      if (initialQuery) {
+        searchArticles(initialQuery, 1, true, newFilters);
+      }
+      
+      return newFilters;
+    });
+  };
+
+  // Handle clearing urgency filter
+  const handleClearUrgencyFilter = () => {
+    setActiveFilters(prev => {
+      const newFilters = {
+        ...prev,
+        urgencyLevel: '' as '' | 'low' | 'medium' | 'breaking'
+      };
+      
+      // Re-search with the updated filters
+      if (initialQuery) {
+        searchArticles(initialQuery, 1, true, newFilters);
+      }
+      
+      return newFilters;
+    });
+  };
+
+  // Check if any filters are active
+  const hasActiveFilters = activeFilters.sources.length > 0 || activeFilters.urgencyLevel !== '';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -173,24 +313,38 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
         placeholder="Search for news articles..."
       />
 
-      {/* Filter Button - Could be expanded to a full filter UI */}
+      {/* Filter and Sort Buttons */}
       <View style={styles.filterContainer}>
         <TouchableOpacity 
-          style={styles.filterButton}
-          onPress={() => {
-            // In a full app, this would open a modal/screen with filter options
-            alert('Filter functionality would be implemented here');
-          }}
+          style={[
+            styles.filterButton,
+            hasActiveFilters && styles.activeFilterButton
+          ]}
+          onPress={() => setFilterModalVisible(true)}
         >
-          <Icon name="filter-list" type="material" size={18} color="#757575" />
-          <Text style={styles.filterText}>Filter</Text>
+          <Icon 
+            name="filter-list" 
+            type="material" 
+            size={18} 
+            color={hasActiveFilters ? "#2196F3" : "#757575"} 
+          />
+          <Text 
+            style={[
+              styles.filterText,
+              hasActiveFilters && styles.activeFilterText
+            ]}
+          >
+            Filter
+          </Text>
         </TouchableOpacity>
         
-        {activeFilters.personalized && isAuthenticated && (
-          <View style={styles.filterChip}>
-            <Text style={styles.filterChipText}>Personalized</Text>
-          </View>
-        )}
+        <TouchableOpacity 
+          style={styles.filterButton}
+          onPress={() => setSortModalVisible(true)}
+        >
+          <Icon name="sort" type="material" size={18} color="#757575" />
+          <Text style={styles.filterText}>Sort</Text>
+        </TouchableOpacity>
         
         {activeFilters.sortBy !== 'relevance' && (
           <View style={styles.filterChip}>
@@ -200,6 +354,50 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
           </View>
         )}
       </View>
+
+      {/* Active Filters Container - Only rendered when there are active filters */}
+      {hasActiveFilters && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activeFiltersContent}
+          >
+            {activeFilters.sources.map(source => (
+              <TouchableOpacity 
+                key={source} 
+                style={styles.activeFilterChip}
+                onPress={() => handleRemoveSourceFilter(source)}
+              >
+                <Text 
+                  style={styles.activeFilterChipText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {source}
+                </Text>
+                <Icon name="close" type="material" size={16} color="#2196F3" />
+              </TouchableOpacity>
+            ))}
+            
+            {activeFilters.urgencyLevel && (
+              <TouchableOpacity 
+                style={styles.activeFilterChip}
+                onPress={handleClearUrgencyFilter}
+              >
+                <Text 
+                  style={styles.activeFilterChipText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  Urgency: {activeFilters.urgencyLevel.charAt(0).toUpperCase() + activeFilters.urgencyLevel.slice(1)}
+                </Text>
+                <Icon name="close" type="material" size={16} color="#2196F3" />
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      )}
 
       {error && (
         <View style={styles.errorContainer}>
@@ -259,6 +457,137 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
           ) : null}
         />
       )}
+
+      {/* Sorting modal */}
+      <Modal
+        visible={sortModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSortModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSortModalVisible(false)}
+        >
+          <View style={styles.sortModalContainer}>
+            <View style={styles.sortModal}>
+              <Text style={styles.sortModalTitle}>Sort By</Text>
+              
+              <TouchableOpacity 
+                style={styles.sortOption}
+                onPress={() => handleSortSelect('relevance')}
+              >
+                <Text style={styles.sortOptionText}>Relevance</Text>
+                {activeFilters.sortBy === 'relevance' && (
+                  <Icon name="check" type="material" size={20} color="#2196F3" />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.sortOption}
+                onPress={() => handleSortSelect('recency')}
+              >
+                <Text style={styles.sortOptionText}>Recency</Text>
+                {activeFilters.sortBy === 'recency' && (
+                  <Icon name="check" type="material" size={20} color="#2196F3" />
+                )}
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.sortOption}
+                onPress={() => handleSortSelect('urgency')}
+              >
+                <Text style={styles.sortOptionText}>Urgency</Text>
+                {activeFilters.sortBy === 'urgency' && (
+                  <Icon name="check" type="material" size={20} color="#2196F3" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Filter modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.filterModalContainer}>
+          <View style={styles.filterModal}>
+            <View style={styles.filterModalHeader}>
+              <TouchableOpacity 
+                onPress={() => setFilterModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Icon name="close" type="material" size={24} color="#616161" />
+              </TouchableOpacity>
+              <Text style={styles.filterModalTitle}>Filters</Text>
+              <TouchableOpacity 
+                onPress={handleResetFilters}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.resetText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.filterModalContent}>
+              {/* Sources section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Sources</Text>
+                {NEWS_SOURCES.map(source => (
+                  <TouchableOpacity 
+                    key={source}
+                    style={styles.sourceItem}
+                    onPress={() => handleSourceToggle(source)}
+                  >
+                    <Text style={styles.sourceItemText}>{source}</Text>
+                    <View style={[
+                      styles.checkbox,
+                      tempFilters.sources.includes(source) && styles.checkboxSelected
+                    ]}>
+                      {tempFilters.sources.includes(source) && (
+                        <Icon name="check" type="material" size={16} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Urgency section */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Minimum Urgency Level</Text>
+                {URGENCY_LEVELS.map(level => (
+                  <TouchableOpacity 
+                    key={level.value}
+                    style={styles.sourceItem}
+                    onPress={() => setTempFilters(prev => ({...prev, urgencyLevel: level.value as '' | 'low' | 'medium' | 'breaking'}))}
+                  >
+                    <Text style={styles.sourceItemText}>{level.label}</Text>
+                    <View style={[
+                      styles.checkbox,
+                      tempFilters.urgencyLevel === level.value && styles.checkboxSelected
+                    ]}>
+                      {tempFilters.urgencyLevel === level.value && (
+                        <Icon name="check" type="material" size={16} color="#FFFFFF" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.applyButton}
+              onPress={handleApplyFilters}
+            >
+              <Text style={styles.applyButtonText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -305,10 +634,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginRight: 8,
   },
+  activeFilterButton: {
+    backgroundColor: '#E3F2FD',
+  },
   filterText: {
     marginLeft: 4,
     fontSize: 14,
     color: '#757575',
+  },
+  activeFilterText: {
+    color: '#2196F3',
   },
   filterChip: {
     backgroundColor: '#E3F2FD',
@@ -320,6 +655,31 @@ const styles = StyleSheet.create({
   filterChipText: {
     fontSize: 14,
     color: '#2196F3',
+  },
+  activeFiltersContainer: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+    height: 52, // Fixed height for container to ensure consistent UI
+    overflow: 'hidden', // Prevent container from expanding
+  },
+  activeFiltersContent: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  activeFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  activeFilterChipText: {
+    fontSize: 14,
+    color: '#2196F3',
+    marginRight: 4,
   },
   loaderContainer: {
     flex: 1,
@@ -348,6 +708,140 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#D32F2F',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sortModalContainer: {
+    width: '80%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sortModal: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '100%',
+  },
+  sortModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#212121',
+    textAlign: 'center',
+  },
+  sortOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  sortOptionText: {
+    fontSize: 16,
+    color: '#424242',
+  },
+  filterModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  filterModal: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    height: '70%',
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#212121',
+  },
+  resetText: {
+    fontSize: 14,
+    color: '#2196F3',
+  },
+  filterModalContent: {
+    flex: 1,
+  },
+  filterSection: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  filterSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#212121',
+    marginBottom: 12,
+  },
+  sourceItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  sourceItemText: {
+    fontSize: 16,
+    color: '#424242',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#BDBDBD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+    marginHorizontal: 8,
+  },
+  sliderLabel: {
+    fontSize: 14,
+    color: '#757575',
+    width: 20,
+    textAlign: 'center',
+  },
+  sliderHint: {
+    fontSize: 14,
+    color: '#757575',
+    marginTop: 4,
+  },
+  applyButton: {
+    backgroundColor: '#2196F3',
+    padding: 16,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

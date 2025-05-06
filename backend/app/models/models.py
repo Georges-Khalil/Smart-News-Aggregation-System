@@ -51,7 +51,6 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # User preferences
-    preference_embedding = Column(ARRAY(Float), nullable=True)  # Main preference vector
     preference_embeddings = Column(JSON, nullable=True)  # Multiple interest vectors stored as JSON
     notification_enabled = Column(Boolean, default=True)
     urgency_threshold = Column(Integer, default=7)  # Articles above this urgency score will trigger notifications

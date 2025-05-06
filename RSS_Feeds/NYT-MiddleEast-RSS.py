@@ -110,12 +110,8 @@ def process_feed():
         "content": scrape_article_content(latest_article.link)  # Scrape and clean content
     }
 
-    print(f"Article data prepared: {article_data}")
-
     # Send to RabbitMQ
     publish_article(article_data)
-
-    print("Article sent to RabbitMQ.")
 
     # Update last processed link **only after** processing is done
     LAST_PROCESSED_LINK = latest_article.link  

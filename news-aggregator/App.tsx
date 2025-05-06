@@ -119,9 +119,10 @@ const MainStackNavigator = () => {
             name="ArticleDetail" 
             component={ArticleDetailScreen}
             options={{
-              headerShown: false,
-              presentation: 'card',
+              headerShown: false, 
+              presentation: 'fullScreenModal',
               animation: 'slide_from_right',
+              contentStyle: { backgroundColor: '#FFFFFF' }
             }}
           />
         </>

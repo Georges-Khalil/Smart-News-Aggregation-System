@@ -35,13 +35,27 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
 }) => {
   const getUrgencyColor = (score: number) => {
     // Scale from green to red based on urgency score (1-10)
-    if (score <= 3) return '#4CAF50'; // Green for low urgency
-    if (score <= 6) return '#FFC107'; // Yellow for medium urgency
-    return '#F44336'; // Red for high urgency
+    if (score <= 4) return '#4CAF50'; // Green for low urgency
+    if (score <= 8) return '#FFC107'; // Yellow for medium urgency
+    return '#F44336'; // Red for breaking news (9-10)
+  };
+
+  const getUrgencyLabel = (score: number) => {
+    if (score <= 4) return 'Low';
+    if (score <= 8) return 'Medium';
+    return 'Breaking';
+  };
+
+  const getUrgencyIcon = (score: number) => {
+    if (score <= 4) return "information-outline";
+    if (score <= 8) return "clock-outline";
+    return "alarm-light";
   };
 
   const timeAgo = dayjs(pubDate).fromNow();
 
+  // Always show urgency indicator for all articles
+  
   return (
     <View style={styles.cardWrapper}>
       <View style={styles.card}>
@@ -54,20 +68,19 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
           <View style={styles.cardHeader}>
             <Text style={styles.source}>{source}</Text>
             <Text style={styles.time}>{timeAgo}</Text>
-            
-            {/* Urgency indicator */}
-            <View style={[styles.urgencyIndicator, { backgroundColor: getUrgencyColor(urgencyScore) }]} />
           </View>
           
           {/* Main content */}
           <View style={styles.mainContent}>
             {/* Article image */}
             {image && (
-              <Image
-                source={{ uri: image }}
-                style={styles.image}
-                resizeMode="cover"
-              />
+              <View style={styles.imageContainer}>
+                <Image
+                  source={{ uri: image }}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
+              </View>
             )}
             
             {/* Article text */}
@@ -83,9 +96,29 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
             </View>
           </View>
           
-          {/* Footer with like button */}
-          {onLikePress && (
-            <View style={styles.cardFooter}>
+          {/* Footer with urgency indicator and like button */}
+          <View style={styles.cardFooter}>
+            {/* Urgency pill badge - now shown for all articles */}
+            <View 
+              style={[
+                styles.urgencyPill, 
+                { backgroundColor: getUrgencyColor(urgencyScore) }
+              ]}
+            >
+              <Icon
+                name={getUrgencyIcon(urgencyScore)}
+                type="material-community"
+                size={14}
+                color="#FFFFFF"
+                style={styles.urgencyIcon}
+              />
+              <Text style={styles.urgencyText}>
+                {getUrgencyLabel(urgencyScore)}
+              </Text>
+            </View>
+            
+            {/* Like button */}
+            {onLikePress && (
               <TouchableOpacity
                 style={styles.likeButton}
                 onPress={() => onLikePress(id, !isLiked)}
@@ -98,8 +131,8 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
                 />
                 <Text style={styles.likeText}>{isLiked ? 'Liked' : 'Like'}</Text>
               </TouchableOpacity>
-            </View>
-          )}
+            )}
+          </View>
         </TouchableOpacity>
       </View>
     </View>
@@ -139,22 +172,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#757575',
     marginLeft: 'auto',
-    marginRight: 8,
-  },
-  urgencyIndicator: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginLeft: 4,
   },
   mainContent: {
     flexDirection: 'row',
+  },
+  imageContainer: {
+    position: 'relative',
+    marginRight: 12,
   },
   image: {
     width: 100,
     height: 100,
     borderRadius: 8,
-    marginRight: 12,
   },
   textContainer: {
     flex: 1,
@@ -172,8 +201,24 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 10,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  urgencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  urgencyIcon: {
+    marginRight: 4,
+  },
+  urgencyText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   likeButton: {
     flexDirection: 'row',

@@ -10,14 +10,9 @@ const getApiUrl = () => {
   }
   
   // For mobile device using Expo Go, use the computer's IP address
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
-    // IMPORTANT: This is the IP address visible to your mobile device
-    // We're using the IP address from your Wi-Fi adapter
-    return 'http://192.168.1.36:8000/api/v1';
-  }
-  
-  // Default fallback
-  return 'http://192.168.0.136:8000/api/v1';
+  // IMPORTANT: This is the IP address visible to your mobile device
+  // We're using the IP address from your Wi-Fi adapter
+  return 'http://192.168.1.36:8000/api/v1';
 };
 
 // Base API configuration using the platform-appropriate URL
@@ -250,7 +245,6 @@ export const articlesApi = {
     sources?: string[];
     minUrgency?: number;
     sortBy?: 'relevance' | 'recency' | 'urgency';
-    personalized?: boolean;
   }) => {
     const {
       query,
@@ -258,11 +252,10 @@ export const articlesApi = {
       pageSize = 10,
       sources,
       minUrgency,
-      sortBy = 'relevance',
-      personalized = true
+      sortBy = 'relevance'
     } = params;
     
-    let url = `/articles/search?query=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}&sort_by=${sortBy}&personalized=${personalized}`;
+    let url = `/articles/search?query=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}&sort_by=${sortBy}`;
     
     if (sources && sources.length > 0) {
       sources.forEach(source => {
@@ -270,7 +263,7 @@ export const articlesApi = {
       });
     }
     
-    if (minUrgency) {
+    if (minUrgency !== undefined) {
       url += `&min_urgency=${minUrgency}`;
     }
     
