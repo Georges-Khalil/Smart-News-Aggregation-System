@@ -144,7 +144,7 @@ def process_feed():
         "description": clean_html(latest_article.description),  # Clean description
         "link": latest_article.link,
         "pub_date": latest_article.published,
-        "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else "No Image",
+        "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else None,
         "source": "The Guardian",
         "content": scrape_article_content(latest_article.link)  # Scrape and clean content
     }

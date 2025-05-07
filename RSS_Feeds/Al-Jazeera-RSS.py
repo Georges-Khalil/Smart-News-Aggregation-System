@@ -25,21 +25,54 @@ def scrape_article_content(article_url):
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Try finding the main content using multiple possible class names
+        # Method 1: Try finding the main content using specific class names
         possible_classes = ["wysiwyg wysiwyg--all-content", "gallery wysiwyg wysiwyg--all-content"]
         article_body = None
 
         for class_name in possible_classes:
             article_body = soup.find("div", class_=class_name)
             if article_body:
-                break  # Stop if we find a match
-
-        if article_body:
-            paragraphs = article_body.find_all("p")
-            article_text = "\n".join(p.get_text(strip=True) for p in paragraphs)
-            return article_text if article_text else None  # Return None if text is empty
+                paragraphs = article_body.find_all("p")
+                article_text = "\n".join(p.get_text(strip=True) for p in paragraphs)
+                if article_text:  # If we found content
+                    return article_text
         
-        return None  # Return None if no valid content is found
+        # Method 2: If Method 1 fails, get all paragraphs and filter out unwanted ones
+        all_paragraphs = soup.find_all("p")
+        content_paragraphs = []
+        
+        for p in all_paragraphs:
+            # Skip paragraphs in the "more-on" (recommended stories) section
+            if any(parent for parent in p.parents if parent.get("class") and "more-on" in parent.get("class")):
+                continue
+                
+            # Skip paragraphs in advertisement sections
+            if any(parent for parent in p.parents if parent.get("class") and 
+                  ("ads" in parent.get("class") or "container--ads" in " ".join(parent.get("class")))):
+                continue
+                
+            # Get paragraph text and add if not empty
+            text = p.get_text(strip=True)
+            if text:
+                content_paragraphs.append(text)
+        
+        # Also include headings that might be part of the article
+        headings = soup.find_all(["h1", "h2", "h3", "h4"])
+        for heading in headings:
+            # Skip headings in unwanted sections
+            if any(parent for parent in heading.parents if parent.get("class") and 
+                  ("more-on" in parent.get("class") or 
+                   "ads" in parent.get("class") or 
+                   "container--ads" in " ".join(parent.get("class")))):
+                continue
+            
+            heading_text = heading.get_text(strip=True)
+            if heading_text:
+                content_paragraphs.append(f"\n{heading_text}\n")
+        
+        # Join all the content and return
+        article_text = "\n".join(content_paragraphs)
+        return article_text if article_text else None
 
     except requests.exceptions.RequestException as e:
         print(f"Error fetching article content: {e}")
@@ -71,7 +104,7 @@ def process_feed():
         "description": BeautifulSoup(latest_article.description, "html.parser").get_text(strip=True),  # Clean HTML tags
         "link": latest_article.link,
         "pub_date": latest_article.published,
-        "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else "No Image",
+        "image": latest_article.media_content[0]["url"] if hasattr(latest_article, "media_content") else None,  # Changed from "No Image" to None
         "source": "Al Jazeera",
         "content": article_content
     }

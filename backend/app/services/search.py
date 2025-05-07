@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, desc
 from ..models.models import Article, User
+from datetime import datetime, timezone
 
 class SearchService:
     """Service to search articles using keyword and/or vector similarity."""
@@ -91,7 +92,8 @@ class SearchService:
                 reverse=True
             )
         else:  # Default to relevance
-            # For relevance, we need to score articles based on match
+            # For relevance, we compute a combined score based on text relevance, recency, and urgency
+            now = datetime.now(timezone.utc)
             article_scores = []
             
             for article in filtered_articles:
@@ -99,9 +101,33 @@ class SearchService:
                 # For simplicity, we'll use a default score of 1.0
                 base_score = 1.0
                 
-                # Include urgency as a minor factor in relevance
-                urgency_boost = article.urgency_score / 10 * 0.2
-                final_score = base_score + urgency_boost
+                # Factor in urgency: normalize to 0-0.4 range
+                urgency_factor = article.urgency_score / 10 * 0.4
+                
+                # Factor in recency: articles from the last 24 hours get higher scores
+                # Ensure pub_date has timezone information
+                pub_date = article.pub_date
+                if pub_date.tzinfo is None:
+                    # If pub_date is naive, make it timezone-aware by assuming UTC
+                    pub_date = pub_date.replace(tzinfo=timezone.utc)
+                
+                # Compute age in days
+                article_age = (now - pub_date).total_seconds() / (24 * 3600)
+                
+                # Map recency to a 0-0.6 score (newer articles score higher)
+                # Articles less than 1 day old get maximum boost
+                # Linear decline for articles 1-7 days old
+                # Minimum score for articles older than 7 days
+                if article_age < 1:
+                    recency_factor = 0.6  # Maximum recency boost
+                elif article_age < 7:
+                    # Linear decline from 0.6 to 0.1 over days 1-7
+                    recency_factor = 0.6 - (article_age - 1) * (0.5 / 6)
+                else:
+                    recency_factor = 0.1  # Minimum recency boost
+                
+                # Combine all factors
+                final_score = base_score + urgency_factor + recency_factor
                 
                 article_scores.append((article, final_score))
             

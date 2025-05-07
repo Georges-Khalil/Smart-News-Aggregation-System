@@ -245,12 +245,21 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
           </View>
           
           {/* Featured image */}
-          {article.image && (
+          {article.image ? (
             <Image
               source={{ uri: article.image }}
               style={styles.image}
               resizeMode="cover"
             />
+          ) : (
+            <View style={[styles.image, styles.imagePlaceholder]}>
+              <Image
+                source={require('../../../assets/placeholder-image.png')}
+                style={styles.placeholderImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.placeholderText}>No image available</Text>
+            </View>
           )}
           
           {/* Article body */}
@@ -399,6 +408,22 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 8,
     marginBottom: 16,
+  },
+  imagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  placeholderImage: {
+    width: '50%',
+    height: '50%',
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9E9E9E',
   },
   description: {
     fontSize: 16,

@@ -53,8 +53,6 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
   };
 
   const timeAgo = dayjs(pubDate).fromNow();
-
-  // Always show urgency indicator for all articles
   
   return (
     <View style={styles.cardWrapper}>
@@ -72,16 +70,24 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
           
           {/* Main content */}
           <View style={styles.mainContent}>
-            {/* Article image */}
-            {image && (
-              <View style={styles.imageContainer}>
+            {/* Article image or placeholder */}
+            <View style={styles.imageContainer}>
+              {image ? (
                 <Image
                   source={{ uri: image }}
                   style={styles.image}
                   resizeMode="cover"
                 />
-              </View>
-            )}
+              ) : (
+                <View style={[styles.image, styles.imagePlaceholder]}>
+                  <Image
+                    source={require('../../assets/placeholder-image.png')}
+                    style={styles.placeholderImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+            </View>
             
             {/* Article text */}
             <View style={styles.textContainer}>
@@ -184,6 +190,17 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 8,
+  },
+  imagePlaceholder: {
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  placeholderImage: {
+    width: 40,
+    height: 40,
   },
   textContainer: {
     flex: 1,

@@ -86,7 +86,7 @@ def process_feed():
         return
 
     # Extract image URL if available
-    image_url = "No Image"
+    image_url = None
     if hasattr(latest_article, "media_content") and latest_article.media_content:
         image_url = latest_article.media_content[0]["url"]
     
