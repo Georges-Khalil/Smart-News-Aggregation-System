@@ -169,6 +169,54 @@ class RecommendationService:
             self._log_error(f"Error updating user preferences: {e}")
             return False
 
+    def count_available_recommendations(
+        self, 
+        user_id: str,
+        exclude_read: bool = True,
+        exploration_ratio: float = 0.2
+    ) -> int:
+        """
+        Count the total number of articles available for recommendation for a user.
+        
+        This method calculates the total count of articles that would be returned
+        by get_recommendations_with_multi_vectors across all pages, using the same
+        filtering criteria but without pagination.
+        
+        Args:
+            user_id: The user's ID
+            exclude_read: Whether to exclude articles the user has already read
+            exploration_ratio: Proportion of results dedicated to exploration
+            
+        Returns:
+            The count of articles that match recommendation criteria
+        """
+        try:
+            # Get the user
+            user = self._get_user(user_id)
+            if not user:
+                return 0
+                
+            # Get articles that haven't been read by the user if exclude_read is True
+            articles = self._get_filtered_articles(user_id, exclude_read)
+            if not articles:
+                return 0
+            
+            # If we don't have preference vectors, return the count of all filterable articles
+            if not self._has_preference_vectors(user):
+                return len(articles)
+            
+            # Count articles with valid embeddings
+            valid_article_count = 0
+            for article in articles:
+                if article.embedding is not None:
+                    valid_article_count += 1
+            
+            return valid_article_count
+            
+        except Exception as e:
+            self._log_error(f"Error counting available recommendations: {e}")
+            return 0
+
     # Helper methods for database operations
     
     def _get_user(self, user_id: str) -> Optional[User]:
@@ -180,9 +228,15 @@ class RecommendationService:
         return self.db.query(Article).filter(Article.id == article_id).first()
     
     def _get_filtered_articles(self, user_id: str, exclude_read: bool) -> List[Article]:
-        """Get articles filtered by read status if needed."""
+        """Get articles filtered by read status and publication date."""
+        # Start with a base query
         query = self.db.query(Article)
         
+        # Filter by publication date - only get articles from the past 2 weeks
+        two_weeks_ago = datetime.datetime.utcnow() - datetime.timedelta(days=14)
+        query = query.filter(Article.pub_date >= two_weeks_ago)
+        
+        # Apply read filter if needed
         if exclude_read:
             read_article_ids = self.db.query(user_article_interactions.c.article_id).filter(
                 user_article_interactions.c.user_id == user_id,
@@ -250,13 +304,13 @@ class RecommendationService:
     
     def _calculate_standard_score(self, similarity: float, recency_score: float, urgency_score: float) -> float:
         """Calculate standard recommendation score."""
-        # 60% similarity, 20% recency, 20% urgency
-        return (similarity * 0.6) + (recency_score * 0.2) + (urgency_score * 0.2)
+        # 80% similarity, 10% recency, 10% urgency
+        return (similarity * 0.8) + (recency_score * 0.1) + (urgency_score * 0.1)
     
     def _calculate_exploration_score(self, similarity: float, recency_score: float, urgency_score: float) -> float:
         """Calculate exploration recommendation score."""
-        # 60% diversity (1-similarity), 20% recency, 20% urgency
-        return ((1.0 - similarity) * 0.6) + (recency_score * 0.2) + (urgency_score * 0.2)
+        # 80% diversity (1-similarity), 10% recency, 10% urgency
+        return ((1.0 - similarity) * 0.8) + (recency_score * 0.1) + (urgency_score * 0.1)
     
     def _combine_and_paginate_recommendations(
         self, 
@@ -271,10 +325,10 @@ class RecommendationService:
         standard_recs.sort(key=lambda x: x[1], reverse=True)
         exploration_candidates.sort(key=lambda x: x[1], reverse=True)
         
-        # Select standard recommendations
+        # Select standard articles
         standard_articles = [article for article, _ in standard_recs]
         
-        # Get IDs of selected standard articles to avoid duplication
+        # Get IDs of standard articles to avoid duplication
         standard_ids = {str(article.id) for article in standard_articles}
         
         # Select exploration articles that aren't in standard recommendations
@@ -283,41 +337,46 @@ class RecommendationService:
             if str(article.id) not in standard_ids:
                 exploration_articles.append(article)
         
-        # Calculate ratio proportions
+        # Calculate ratio proportions for blending
         standard_ratio = 1.0 - exploration_ratio
-        num_standard_per_page = int(limit * standard_ratio)
+        
+        # Create a deterministic combined list for consistent pagination
+        # This is crucial for ensuring all articles are accessible through pagination
+        combined_articles = []
+        
+        # Calculate how many of each type to include per page
+        # This ensures consistent distribution across all pages
+        num_standard_per_page = max(1, int(limit * standard_ratio))
         num_exploration_per_page = limit - num_standard_per_page
         
-        # Prepare combined results
-        all_results = []
+        # Calculate total number of full pages we can create
+        total_standard_pages = (len(standard_articles) + num_standard_per_page - 1) // num_standard_per_page
+        total_exploration_pages = (len(exploration_articles) + num_exploration_per_page - 1) // num_exploration_per_page
+        total_pages = max(total_standard_pages, total_exploration_pages)
         
-        # Calculate how many articles we need for the current offset
-        total_standard_needed = min(len(standard_articles), num_standard_per_page * ((offset // limit) + 1))
-        total_exploration_needed = min(len(exploration_articles), num_exploration_per_page * ((offset // limit) + 1))
+        # Build the complete combined article list to ensure consistent pagination
+        for page in range(total_pages):
+            # Add standard articles for this page
+            start_idx = page * num_standard_per_page
+            end_idx = min(start_idx + num_standard_per_page, len(standard_articles))
+            for i in range(start_idx, end_idx):
+                combined_articles.append(standard_articles[i])
+            
+            # Add exploration articles for this page
+            start_idx = page * num_exploration_per_page
+            end_idx = min(start_idx + num_exploration_per_page, len(exploration_articles))
+            for i in range(start_idx, end_idx):
+                combined_articles.append(exploration_articles[i])
         
-        # Add standard articles
-        for i in range(min(total_standard_needed, len(standard_articles))):
-            all_results.append((standard_articles[i], 1, i))  # (article, type, original_position)
-        
-        # Add exploration articles
-        for i in range(min(total_exploration_needed, len(exploration_articles))):
-            all_results.append((exploration_articles[i], 2, i))  # (article, type, original_position)
-        
-        # Sort the results to ensure proper mixing
-        all_results.sort(key=lambda x: (
-            (x[1] - 1) * limit + (x[2] // num_standard_per_page if x[1] == 1 else x[2] // num_exploration_per_page)
-        ))
-        
-        # Extract the articles for the requested page
+        # Apply pagination to the combined list
         start_idx = offset
-        end_idx = min(start_idx + limit, len(all_results))
+        end_idx = min(start_idx + limit, len(combined_articles))
         
-        # Check for out of bounds condition
-        if start_idx >= len(all_results):
-            return []  # Return empty list if we're past the last page
+        # Check if we're requesting a page beyond what's available
+        if start_idx >= len(combined_articles):
+            return []
         
-        # Get the final paginated result
-        return [article for article, _, _ in all_results[start_idx:end_idx]]
+        return combined_articles[start_idx:end_idx]
     
     # Helper methods for preference vectors
     

@@ -175,8 +175,16 @@ async def get_personalized_feed(
     # Calculate offset based on pagination
     offset = (page - 1) * page_size
     
-    # Get integrated recommendations with multi-vector approach
+    # Get recommendation service
     recommendation_service = RecommendationService(db)
+    
+    # Get the count of available recommendations
+    total_available_articles = recommendation_service.count_available_recommendations(
+        user_id=str(current_user.id),
+        exploration_ratio=exploration_ratio
+    )
+    
+    # Get integrated recommendations with multi-vector approach
     articles = recommendation_service.get_recommendations_with_multi_vectors(
         user_id=str(current_user.id),
         limit=page_size,
@@ -199,15 +207,14 @@ async def get_personalized_feed(
             # If already a dict, just append it
             articles_dict.append(article)
     
-    # Get total count for pagination
-    total_count = db.query(ArticleModel).count()
-    total_pages = (total_count + page_size - 1) // page_size
+    # Calculate pagination based on the count of available recommendations
+    total_pages = (total_available_articles + page_size - 1) // page_size if total_available_articles > 0 else 0
     
     return {
         "success": True,
         "message": "Personalized feed retrieved successfully",
         "data": articles_dict,
-        "total": total_count,
+        "total": total_available_articles,
         "page": page,
         "page_size": page_size,
         "total_pages": total_pages

@@ -175,7 +175,7 @@ const HomeScreen = ({ navigation }: any) => {
 
       <FlatList
         data={articles}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `article-${item.id}-${index}`}
         renderItem={({ item }) => (
           <ArticleCard
             id={item.id}

@@ -412,7 +412,7 @@ const SearchScreen = ({ navigation, route }: SearchScreenProps) => {
       ) : (
         <FlatList
           data={articles}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) => `search-article-${item.id}-${index}`}
           renderItem={({ item }) => (
             <ArticleCard
               id={item.id}
