@@ -17,15 +17,13 @@ import SearchBar from '../../components/SearchBar';
 import { articlesApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-// Define common news sources
+// Define news sources that are actually in the database
 const NEWS_SOURCES = [
-  "CNN", 
-  "BBC", 
   "Al Jazeera", 
   "The Guardian", 
-  "FOX News", 
-  "LBC", 
-  "New York Times"
+  "Fox News", 
+  "LBCI", 
+  "The New York Times"
 ];
 
 // Urgency levels
