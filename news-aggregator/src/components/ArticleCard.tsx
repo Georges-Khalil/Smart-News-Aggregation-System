@@ -80,10 +80,11 @@ const ArticleCard: React.FC<ArticleCardProps> = ({
                 />
               ) : (
                 <View style={[styles.image, styles.imagePlaceholder]}>
-                  <Image
-                    source={require('../../assets/placeholder-image.png')}
-                    style={styles.placeholderImage}
-                    resizeMode="contain"
+                  <Icon
+                    name="image-off"
+                    type="material-community"
+                    size={40}
+                    color="#BDBDBD"
                   />
                 </View>
               )}

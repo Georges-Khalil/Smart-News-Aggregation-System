@@ -253,10 +253,11 @@ const ArticleDetailScreen: React.FC<ArticleDetailProps> = ({ route, navigation }
             />
           ) : (
             <View style={[styles.image, styles.imagePlaceholder]}>
-              <Image
-                source={require('../../../assets/placeholder-image.png')}
-                style={styles.placeholderImage}
-                resizeMode="contain"
+              <Icon
+                name="image-off"
+                type="material-community"
+                size={64}
+                color="#BDBDBD"
               />
               <Text style={styles.placeholderText}>No image available</Text>
             </View>
